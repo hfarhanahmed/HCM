@@ -1,122 +1,407 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const MoodTrackerApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MoodTrackerApp extends StatelessWidget {
+  const MoodTrackerApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Mood Tracker',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MoodTrackerScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+enum MoodType { happy, neutral, sad }
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+class MoodEntry {
+  final MoodType type;
+  final DateTime date;
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  MoodEntry({required this.type, required this.date});
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class MoodTrackerScreen extends StatefulWidget {
+  const MoodTrackerScreen({super.key});
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  @override
+  State<MoodTrackerScreen> createState() => _MoodTrackerScreenState();
+}
+
+class _MoodTrackerScreenState extends State<MoodTrackerScreen> {
+  MoodType? _selectedMood;
+  final List<MoodEntry> _entries = [];
+
+  void _addMood() {
+    if (_selectedMood != null) {
+      setState(() {
+        _entries.insert(
+          0,
+          MoodEntry(type: _selectedMood!, date: DateTime.now()),
+        );
+        if (_entries.length > 7) {
+          _entries.removeLast();
+        }
+        _selectedMood = null; // reset selection
+      });
+    }
+  }
+
+  Color _getMoodColor(MoodType type) {
+    switch (type) {
+      case MoodType.happy:
+        return Colors.green;
+      case MoodType.neutral:
+        return Colors.amber;
+      case MoodType.sad:
+        return Colors.blue;
+    }
+  }
+
+  String _getMoodTitle(MoodType type) {
+    switch (type) {
+      case MoodType.happy:
+        return 'Happy';
+      case MoodType.neutral:
+        return 'Neutral';
+      case MoodType.sad:
+        return 'Sad';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
+        title: const Text('Mood Tracker'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      body: SafeArea(
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'How do you feel today?',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
             ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: MoodType.values.map((type) {
+                final isSelected = _selectedMood == type;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedMood = type;
+                    });
+                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: isSelected
+                              ? Border.all(color: _getMoodColor(type), width: 4)
+                              : Border.all(color: Colors.transparent, width: 4),
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: CustomPaint(
+                          size: const Size(80, 80),
+                          painter: MoodPainter(type: type),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(_getMoodTitle(type)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: ElevatedButton(
+                onPressed: _selectedMood == null ? null : _addMood,
+                child: const Text('Log Mood'),
+              ),
+            ),
+            const Divider(height: 48),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                'Past 7 Entries',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _entries.isEmpty
+                  ? const Center(child: Text('No moods logged yet.'))
+                  : ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _entries.length,
+                      itemBuilder: (context, index) {
+                        final entry = _entries[index];
+                        return AnimatedTimelineEntry(entry: entry);
+                      },
+                    ),
+            ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+}
+
+class AnimatedTimelineEntry extends StatefulWidget {
+  final MoodEntry entry;
+
+  const AnimatedTimelineEntry({super.key, required this.entry});
+
+  @override
+  State<AnimatedTimelineEntry> createState() => _AnimatedTimelineEntryState();
+}
+
+class _AnimatedTimelineEntryState extends State<AnimatedTimelineEntry>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Color _getMoodColor(MoodType type) {
+    switch (type) {
+      case MoodType.happy:
+        return Colors.green;
+      case MoodType.neutral:
+        return Colors.amber;
+      case MoodType.sad:
+        return Colors.blue;
+    }
+  }
+
+  String _getMoodTitle(MoodType type) {
+    switch (type) {
+      case MoodType.happy:
+        return 'Happy';
+      case MoodType.neutral:
+        return 'Neutral';
+      case MoodType.sad:
+        return 'Sad';
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.month}/${date.day} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        _controller.forward(from: 0.0);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_formatDate(widget.entry.date)),
+            const SizedBox(height: 8),
+            ScaleTransition(
+              scale: _scaleAnimation,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _getMoodColor(widget.entry.type).withOpacity(0.4),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: CustomPaint(
+                  size: const Size(60, 60),
+                  painter: MoodPainter(type: widget.entry.type),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(_getMoodTitle(widget.entry.type)),
+          ],
+        ),
       ),
     );
+  }
+}
+
+class MoodPainter extends CustomPainter {
+  final MoodType type;
+
+  MoodPainter({required this.type});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    // Draw face background
+    final facePaint = Paint()
+      ..color = _getFaceColor(type)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, radius, facePaint);
+
+    // Draw border
+    final borderPaint = Paint()
+      ..color = Colors.black87
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    canvas.drawCircle(center, radius, borderPaint);
+
+    // Draw eyes
+    final eyePaint = Paint()
+      ..color = Colors.black87
+      ..style = PaintingStyle.fill;
+
+    final eyeRadius = radius * 0.15;
+    final leftEyeCenter = Offset(
+      center.dx - radius * 0.35,
+      center.dy - radius * 0.2,
+    );
+    final rightEyeCenter = Offset(
+      center.dx + radius * 0.35,
+      center.dy - radius * 0.2,
+    );
+
+    canvas.drawCircle(leftEyeCenter, eyeRadius, eyePaint);
+    canvas.drawCircle(rightEyeCenter, eyeRadius, eyePaint);
+
+    // Draw eyebrows and mouth based on mood
+    final featurePaint = Paint()
+      ..color = Colors.black87
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round;
+
+    final mouthPath = Path();
+
+    switch (type) {
+      case MoodType.happy:
+        // Eyebrows
+        canvas.drawLine(
+          Offset(
+            leftEyeCenter.dx - radius * 0.2,
+            leftEyeCenter.dy - radius * 0.2,
+          ),
+          Offset(
+            leftEyeCenter.dx + radius * 0.1,
+            leftEyeCenter.dy - radius * 0.3,
+          ),
+          featurePaint,
+        );
+        canvas.drawLine(
+          Offset(
+            rightEyeCenter.dx + radius * 0.2,
+            rightEyeCenter.dy - radius * 0.2,
+          ),
+          Offset(
+            rightEyeCenter.dx - radius * 0.1,
+            rightEyeCenter.dy - radius * 0.3,
+          ),
+          featurePaint,
+        );
+        // Smile
+        final smileRect = Rect.fromCircle(
+          center: Offset(center.dx, center.dy + radius * 0.1),
+          radius: radius * 0.5,
+        );
+        mouthPath.addArc(smileRect, 0.1 * pi, 0.8 * pi);
+        break;
+      case MoodType.neutral:
+        // Straight mouth
+        mouthPath.moveTo(center.dx - radius * 0.4, center.dy + radius * 0.3);
+        mouthPath.lineTo(center.dx + radius * 0.4, center.dy + radius * 0.3);
+        break;
+      case MoodType.sad:
+        // Eyebrows
+        canvas.drawLine(
+          Offset(
+            leftEyeCenter.dx - radius * 0.2,
+            leftEyeCenter.dy - radius * 0.3,
+          ),
+          Offset(
+            leftEyeCenter.dx + radius * 0.1,
+            leftEyeCenter.dy - radius * 0.2,
+          ),
+          featurePaint,
+        );
+        canvas.drawLine(
+          Offset(
+            rightEyeCenter.dx + radius * 0.2,
+            rightEyeCenter.dy - radius * 0.3,
+          ),
+          Offset(
+            rightEyeCenter.dx - radius * 0.1,
+            rightEyeCenter.dy - radius * 0.2,
+          ),
+          featurePaint,
+        );
+        // Frown
+        final frownRect = Rect.fromCircle(
+          center: Offset(center.dx, center.dy + radius * 0.6),
+          radius: radius * 0.5,
+        );
+        mouthPath.addArc(frownRect, 1.1 * pi, 0.8 * pi);
+        break;
+    }
+
+    canvas.drawPath(mouthPath, featurePaint);
+  }
+
+  Color _getFaceColor(MoodType type) {
+    switch (type) {
+      case MoodType.happy:
+        return Colors.green.shade300;
+      case MoodType.neutral:
+        return Colors.amber.shade300;
+      case MoodType.sad:
+        return Colors.blue.shade300;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant MoodPainter oldDelegate) {
+    return oldDelegate.type != type;
   }
 }
