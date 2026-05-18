@@ -1,0 +1,10 @@
+{
+  "buildCommand": "./vercel-build.sh",
+  "outputDirectory": "mood_tracker/build/web",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ]
+}
