@@ -1,116 +1,174 @@
 "use client";
 
 import { useState } from "react";
+import { BalanceCard } from "@/components/BalanceCard";
+import { ManagerReviewCard } from "@/components/ManagerReviewCard";
+import { TimeOffRequestForm } from "@/components/TimeOffRequestForm";
+import type { BalanceStatus } from "@/components/types";
+import { useBalances } from "@/hooks/useBalances";
+import { useManagerApproval } from "@/hooks/useManagerApproval";
+import { useSubmitRequest } from "@/hooks/useSubmitRequest";
+import type { ChaosMode } from "@/lib/hcm/types";
 
-type ApiResult = {
-  label: string;
-  status: number;
-  body: string;
+const EMP_ID = "emp-001";
+const LOC_ID = "loc-us";
+
+const MOCK_PENDING_REQUEST = {
+  empId: EMP_ID,
+  locId: LOC_ID,
+  daysRequested: 2,
 };
 
-async function callApi(
-  label: string,
-  input: RequestInfo,
-  init?: RequestInit,
-): Promise<ApiResult> {
-  const response = await fetch(input, init);
-  const body = await response.text();
+const CHAOS_MODES: { label: string; value: ChaosMode | "default" }[] = [
+  { label: "Default / Success", value: "default" },
+  { label: "Insufficient", value: "insufficient" },
+  { label: "Silent Failure", value: "silent_failure" },
+  { label: "Timeout", value: "timeout" },
+];
 
-  return {
-    label,
-    status: response.status,
-    body: body || "(empty body)",
-  };
+function resolveBalanceStatus(
+  isLoading: boolean,
+  hasDiscrepancy: boolean,
+  isSubmitting: boolean,
+  isStale: boolean,
+): BalanceStatus {
+  if (isLoading) {
+    return "loading";
+  }
+
+  if (hasDiscrepancy) {
+    return "discrepancy";
+  }
+
+  if (isSubmitting) {
+    return "syncing";
+  }
+
+  if (isStale) {
+    return "stale";
+  }
+
+  return "idle";
 }
 
 export default function Home() {
-  const [results, setResults] = useState<ApiResult[]>([]);
-  const [isRunning, setIsRunning] = useState(false);
+  const [chaosMode, setChaosMode] = useState<ChaosMode | undefined>(undefined);
 
-  async function runSmokeTests() {
-    setIsRunning(true);
-    setResults([]);
+  const {
+    data: balance,
+    isLoading,
+    isStale,
+    bonusMessage,
+    lastUpdated,
+  } = useBalances(EMP_ID, LOC_ID);
 
-    const nextResults: ApiResult[] = [];
+  const {
+    mutate: submitRequest,
+    isPending: isSubmitting,
+    error: submitError,
+    hasDiscrepancy,
+  } = useSubmitRequest();
 
-    nextResults.push(
-      await callApi("GET /api/hcm/batch", "/api/hcm/batch"),
-    );
+  const {
+    verificationState,
+    currentLiveBalance,
+    verifyBalance,
+  } = useManagerApproval();
 
-    nextResults.push(
-      await callApi(
-        "GET /api/hcm/balance",
-        "/api/hcm/balance?empId=emp-001&locId=loc-us",
-      ),
-    );
-
-    nextResults.push(
-      await callApi("POST success", "/api/hcm/request", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-chaos-mode": "success",
-        },
-        body: JSON.stringify({
-          empId: "emp-001",
-          locId: "loc-us",
-          days: 1,
-        }),
-      }),
-    );
-
-    nextResults.push(
-      await callApi("POST natural insufficient", "/api/hcm/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          empId: "emp-002",
-          locId: "loc-us",
-          days: 2,
-        }),
-      }),
-    );
-
-    setResults(nextResults);
-    setIsRunning(false);
-  }
+  const balanceStatus = resolveBalanceStatus(
+    isLoading,
+    hasDiscrepancy,
+    isSubmitting,
+    isStale,
+  );
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 p-8">
+    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 p-8">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">ExampleHR — Phase 1 Mock API</h1>
+        <h1 className="text-2xl font-semibold">ExampleHR Time Off</h1>
         <p className="text-sm text-zinc-600">
-          Smoke-test panel for the in-memory HCM route handlers.
+          Employee dashboard and manager review wired to the HCM mock API.
         </p>
       </header>
 
-      <button
-        type="button"
-        onClick={runSmokeTests}
-        disabled={isRunning}
-        className="w-fit rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {isRunning ? "Running tests..." : "Run API smoke tests"}
-      </button>
+      <section className="space-y-4">
+        <h2 className="text-lg font-medium">Employee</h2>
 
-      {results.length > 0 && (
-        <section className="space-y-4">
-          {results.map((result) => (
-            <article
-              key={result.label}
-              className="rounded-md border border-zinc-200 p-4"
-            >
-              <h2 className="font-medium">
-                {result.label}{" "}
-                <span className="text-zinc-500">({result.status})</span>
-              </h2>
-              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs text-zinc-700">
-                {result.body}
-              </pre>
-            </article>
-          ))}
-        </section>
-      )}
+        <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4">
+          <p className="mb-2 text-sm font-medium text-zinc-700">
+            Chaos mode (for manual testing)
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {CHAOS_MODES.map((mode) => (
+              <button
+                key={mode.value}
+                type="button"
+                onClick={() =>
+                  setChaosMode(
+                    mode.value === "default" ? undefined : mode.value,
+                  )
+                }
+                className={`rounded-md px-3 py-1.5 text-sm ${
+                  (mode.value === "default" && chaosMode === undefined) ||
+                  chaosMode === mode.value
+                    ? "bg-zinc-900 text-white"
+                    : "border border-zinc-300 bg-white text-zinc-700"
+                }`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <BalanceCard
+            empId={EMP_ID}
+            locId={LOC_ID}
+            daysAvailable={balance?.days ?? 0}
+            status={balanceStatus}
+            lastUpdated={lastUpdated}
+            bonusMessage={bonusMessage}
+          />
+
+          <TimeOffRequestForm
+            availableDays={balance?.days ?? 0}
+            isSubmitting={isSubmitting}
+            error={submitError}
+            onSubmit={(days) =>
+              submitRequest({
+                empId: EMP_ID,
+                locId: LOC_ID,
+                days,
+                chaosMode,
+              })
+            }
+          />
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-medium">Manager</h2>
+
+        <ManagerReviewCard
+          request={MOCK_PENDING_REQUEST}
+          verificationState={verificationState}
+          currentLiveBalance={currentLiveBalance}
+          onVerify={() =>
+            verifyBalance(
+              MOCK_PENDING_REQUEST.empId,
+              MOCK_PENDING_REQUEST.locId,
+              MOCK_PENDING_REQUEST.daysRequested,
+            )
+          }
+          onApprove={() => {
+            console.log("Approve request", MOCK_PENDING_REQUEST);
+          }}
+          onDeny={() => {
+            console.log("Deny request", MOCK_PENDING_REQUEST);
+          }}
+        />
+      </section>
     </main>
   );
 }
